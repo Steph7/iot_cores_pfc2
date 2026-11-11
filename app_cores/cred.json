@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "projeto-cores-maquiagem",
+  "private_key_id": "c6c63758d3a4ead512ea39a1fe970875adc17217",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQCYw59OqW9Lwveo\nmdxEqF76aKZOJDrPPa/dlR+0K2etJ8PppDAS9jmTg6WqNZ3qe2IFp5eCWcI48kZj\nhQIkrcHjZn11qILbD/Jd8Q7ML86+g1yrihkjRHmI+xOXWMTsLWACwx4ojeEFF80A\nXJd9TyHHXt73D76+TZcy3JVETK7OwqR4P+s6hpZaHbRIMsk7tQ/CVagwGP+wB7+y\nNGKMYj+VYjg6scyo4WBb4u1ITFuV1G8pgTeN8RNW+XVs+GQY0T1oFXS4DPy6wENn\nOKt35K8K0Rv/vteow7E3RI/UgrfhB5zhm6WTwIy9x2i6NC8/hPB9GcTcN4easY7o\nO4f1W0uxAgMBAAECggEAHGjlC5//DrvnivdyO2KEp1Um+IlMVpZGSpMdHkikM1Od\n36mlNyGLe5+UA5+NCrp/dEXCq38925FS/dcSmvelg0DgPC1miI7iqA3YjqilblDH\nvy8jlad6Yrsu3YqotLOLk3ft9+TK4EOY4GRX1/oLciR2msPW2VVctRzItbb9G35V\nwU86TexugvNN7dM9Zi2ozRCyvjSACnPWS/2vZtx507J6pC4XqtGrzP8ET09IwJL7\nQ0IVbTDQJadxiqrZ21U3mdW0qDsRELTY2PBGusMjY/AREhCUfXJLuTPs/wkTZfx9\n616JYkh2oXzcyMsPkfZf7U69KMdJ+QqKZGWMFleF8QKBgQDHP74uXIvsuMIsEU2R\nlvgp0jZXKzYvE+tq9ouMc5Wo0zyWKjOca1F9S/2Guy2bHDy23k07gTAAoTLRMGPo\nrXA94jpEOv4dl9bXCNXGEaxrkxXa3FQxMsRCRPoh0mt0s8ubEBZ/4iGosyxkFxp/\nKP12XTep+FDKfSeMfYB1LrIVRwKBgQDERm7Xj3MiSrKjqg7n9y2rqCwXUoieDbRN\nV9j9qE2KZ3x1JLnCfrsvSycolPE2mx79pRKzDeIl0Gr+7kSSJGdn5FkUIlNRfQWe\n01CA2d8+h7TDknPWpOehyYzBy4Uwi2t6jcrzGSzGwzOhIEn9cjwod3T/w0sU0oBG\nfjlXQJPzRwKBgQCQBp6lipZGlkMdcaB9hgB60o4fMognPaHlnrO+4eojsBXSgkzu\nW5D7Hkvz8SeFQMMOeOChC8A0JFHEbtM5ZO2GfhoaKf54S8Kri6JjW3EkDZ01qCBf\ns8+0C4I3oo+0OycJPnbVGBO2i1WiQCUSGAInZjiPb4SO6isFXc7WZduqjwKBgQCj\ng6H4B1P9r4lfe99rNKthpHsG+wVB11zsSlFGER54PXqcBPqUpAvBfLSkxGCoA1cw\nLIOFk/1hT16z/0A1GArlrIDhmy8aZjN2e8lHbzri1x+rBqlmmn82c7jGAo11QdFK\nijIXkFOTSzAJ/eJmOPMRK2PXZ5V3RV8EW0fd/rjDJQKBgQC9nbcW4n8fNTe7zgeR\nJBsxpOUyOGvmapYHxH8gNRVQiUpDjwQBx5neDqpMu6GmJtRGYU1U8AdqAvPDwdxB\naX5U+Xqtrk7uhnMOM7uC25UoJT4xOPOS/mvDpIh2ODsI3OAGU53wRIRjqV/X7hZ8\nhIT38d8qfubuHMWrC5i3Vcm1DA==\n-----END PRIVATE KEY-----\n",
+  "client_email": "conta-cores-base@projeto-cores-maquiagem.iam.gserviceaccount.com",
+  "client_id": "112348739826805105079",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/conta-cores-base%40projeto-cores-maquiagem.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

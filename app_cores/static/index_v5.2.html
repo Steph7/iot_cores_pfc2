@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dosadora IoT - Painel</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 20px auto; padding: 15px; background: #f4f5f7; color: #333; }
+        .card { background: #ffffff; padding: 20px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #e1e4e8; }
+        .view { display: none; } /* Todas as telas começam ocultas */
+        .view.active { display: block; } /* Apenas a tela ativa aparece */
+        
+        button { background: #4F46E5; color: white; border: none; padding: 10px 18px; cursor: pointer; border-radius: 6px; font-weight: bold; }
+        button:hover { background: #4338ca; }
+        .hidden { display: none; }
+        
+        /* Estilos dos cards de bombas e sensor */
+        .grid-bombas { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; margin-top: 15px; }
+        .card-bomba { background: #f8fafc; border: 2px solid #cbd5e1; border-radius: 8px; padding: 10px; text-align: center; }
+        .comparacao-container { display: flex; align-items: center; justify-content: space-around; background: #f8fafc; padding: 15px; border-radius: 8px; margin-top: 10px; border: 1px solid #e2e8f0; }
+        .visor-cor { width: 60px; height: 60px; border-radius: 50%; border: 2px solid #94a3b8; margin: 0 auto 5px auto; }
+        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+        .ligado { background: #dcfce7; color: #166534; }
+        .desligado { background: #f1f5f9; color: #64748b; }
+    </style>
+</head>
+<body>
+
+    <!-- ========================================== -->
+    <!-- TELA 1: STATUS DA MÁQUINA (Ligar / Conectar) -->
+    <!-- ========================================== -->
+    <div id="view-status" class="view active">
+        <div class="card" style="text-align: center; padding: 40px 20px;">
+            <h2>Status da Máquina</h2>
+            <div id="maquinaEstadoBadge" class="status-badge desligado" style="font-size: 16px; padding: 8px 16px; margin: 20px 0;">VERIFICANDO...</div>
+            <p id="maquinaMensagem">Conectando à rede da dosadora...</p>
+            <br>
+            <button id="irParaCriarReceitaBtn" class="hidden" onclick="mudarTela('view-receita')">Criar Nova Receita</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 2: CRIAR / ESCOLHER RECEITA          -->
+    <!-- ========================================== -->
+    <div id="view-receita" class="view">
+        <div class="card">
+            <h3>Nova Receita de Tinta</h3>
+            <button onclick="mudarTela('view-status')" style="background: #64748b; margin-bottom: 15px;">← Voltar ao Status</button>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Cor Manual:</label>
+                <input type="color" id="seletorCor" value="#ff0000" style="vertical-align: middle;">
+                <button id="enviarCorBtn" style="margin-left: 10px;">Calcular Pesos</button>
+            </div>
+            <div>
+                <button id="tirarFotoBtn">Tirar Foto</button>
+                <button id="enviarImgBtn" style="background: #0ea5e9;">Enviar Imagem</button>
+                <input type="file" id="inputCamera" accept="image/*" capture="environment" class="hidden">
+                <input type="file" id="inputArquivo" accept="image/png, image/jpeg, image/webp" class="hidden">
+            </div>
+        </div>
+
+        <div class="card" id="secaoCores" style="display: none;">
+            <h3>Cores Detectadas</h3>
+            <div id="paletaCores" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
+        </div>
+        <div class="card" id="secaoPesos" style="display: none;">
+            <h3>Volume Alvo (Max: 20 mL)</h3>
+            <input type="number" id="inputVolume" value="20" min="1" max="20" style="padding: 6px; width: 70px;"> mL
+            <ul id="listaPesos" style="list-style-type: none; padding: 0; margin-top: 15px;"></ul>
+            <button id="enviarReceitaArduinoBtn" style="background: #16a34a; width: 100%; margin-top: 10px; padding: 12px;">🚀 Enviar para Produção</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- TELA 3: MONITORAMENTO DA PRODUÇÃO (AO VIVO)-->
+    <!-- ========================================== -->
+    <div id="view-producao" class="view">
+        <div class="card">
+            <h3>Produção em Andamento...</h3>
+            <p>Acompanhe a dosagem e a mistura em tempo real.</p>
+
+            <!-- 5 Bombas -->
+            <div class="grid-bombas">
+                <div class="card-bomba"><h4>Vermelho</h4><div id="bombaVermelho" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Amarelo</h4><div id="bombaAmarelo" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Azul</h4><div id="bombaAzul" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Branco</h4><div id="bombaBranco" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Preto</h4><div id="bombaPreto" style="font-weight:bold;">0.00g</div></div>
+            </div>
+
+            <!-- Misturador -->
+            <div style="margin-top: 20px; background: #f8fafc; padding: 12px; border-radius: 8px;">
+                <strong>Misturador:</strong> <span id="statusMisturadorBadge" class="status-badge desligado">DESLIGADO</span>
+                <span style="float: right;">Tempo: <strong id="tempoMistura">--:--</strong></span>
+            </div>
+
+            <!-- Sensor de Cor / Qualidade -->
+            <div style="margin-top: 15px;">
+                <p style="font-weight: bold; font-size: 14px;">Controle de Qualidade:</p>
+                <div class="comparacao-container">
+                    <div style="text-align: center;"><div class="visor-cor" id="corPedidoVisor"></div><small>Pedido</small></div>
+                    <div style="font-weight: bold;">VS</div>
+                    <div style="text-align: center;"><div class="visor-cor" id="corSensorVisor"></div><small>Sensor</small></div>
+                </div>
+            </div>
+
+            <button onclick="mudarTela('view-status')" style="background: #64748b; width: 100%; margin-top: 20px;">Voltar ao Início</button>
+        </div>
+    </div>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js');
+    }
+
+    const respostaEl = document.getElementById('resposta');
+    const inputCamera = document.getElementById('inputCamera');
+    const inputArquivo = document.getElementById('inputArquivo');
+
+    let corSelecionadaGlobal = null;
+    let volumeAtual = 20;
+    let ultimosPesosCalculados = null;
+
+    // --- CONEXÃO WEBSOCKET COM O SERVIDOR FASTAPI ---
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const socket = new WebSocket(wsUrl);
+
+    socket.onmessage = function(event) {
+        const dados = JSON.parse(event.data);
+        console.log("Recebido do Servidor (WebSocket):", dados);
+
+        if (dados.tipo === "status_maquina") {
+            atualizarBadgeStatus(dados.estado);
+        } else if (dados.tipo === "progresso_bomba") {
+            atualizarProgressoBomba(dados.bomba, dados.valor);
+        }
+        else if (dados.tipo === "progresso_vortex") {
+            atualizarMisturador(dados.valor);
+        }
+        else if (dados.tipo === "sensor_cor") {
+            // Altera a cor de fundo do círculo do sensor para o Hex que veio do Python
+            const visorSensor = document.getElementById('corSensorVisor');
+            visorSensor.style.backgroundColor = dados.cor;
+            
+            // Opcional: Adiciona o código hex como texto ou tooltip para conferência
+            visorSensor.title = "Cor lida: " + dados.cor;
+        } 
+    };
+
+    socket.onopen = () => console.log("Conectado ao WebSocket do servidor.");
+    socket.onclose = () => console.log("WebSocket desconectado.");
+
+    // Função para atualizar a Tela 1 (Status da Máquina)
+    function atualizarBadgeStatus(estado) {
+        const badge = document.getElementById('maquinaEstadoBadge');
+        const mensagem = document.getElementById('maquinaMensagem');
+        const btnCriar = document.getElementById('irParaCriarReceitaBtn');
+
+        badge.textContent = estado.toUpperCase();
+
+        if (estado === "livre") {
+            badge.className = "status-badge ligado";
+            mensagem.textContent = "A dosadora está pronta para uso.";
+            btnCriar.classList.remove('hidden');
+        } else if (estado === "ocupado") {
+            badge.className = "status-badge desligado";
+            badge.style.background = "#fef08a"; // Amarelo/Laranja para ocupado
+            badge.style.color = "#854d0e";
+            mensagem.textContent = "A máquina está realizando uma produção no momento...";
+            btnCriar.classList.add('hidden');
+        } else {
+            badge.className = "status-badge desligado";
+            mensagem.textContent = "Máquina desligada ou desconectada.";
+            btnCriar.classList.add('hidden');
+        }
+    }
+
+    // Função para atualizar os pesos na Tela 3 em tempo real
+    function atualizarProgressoBomba(nomeBomba, valor) {
+        // Mapeia o nome enviado pelo Arduino para o ID do HTML
+        const mapaBombas = {
+            "vermelho": "bombaVermelho",
+            "amarelo": "bombaAmarelo",
+            "azul": "bombaAzul",
+            "branco": "bombaBranco",
+            "preto": "bombaPreto"
+        };
+
+        const idElemento = mapaBombas[nomeBomba.toLowerCase()];
+        if (idElemento) {
+            document.getElementById(idElemento).textContent = valor + "g";
+        }
+    }
+
+    // Função auxiliar para atualizar o misturador na Tela 3
+    function atualizarMisturador(segundos) {
+    const badge = document.getElementById('statusMisturadorBadge');
+    const tempoEl = document.getElementById('tempoMistura');
+
+    // Se o tempo for maior que 0, a máquina está misturando!
+    if (segundos > 0) {
+        badge.textContent = "LIGADO";
+        badge.className = "status-badge ligado";
+        tempoEl.textContent = segundos + "s";
+    } else {
+        // Se o tempo for 0 ou menor, terminou.
+        badge.textContent = "DESLIGADO";
+        badge.className = "status-badge desligado";
+        tempoEl.textContent = "Pronto";
+    }
+}
+
+    // Função para alternar entre as telas (Views)
+    function mudarTela(idView) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(idView).classList.add('active');
+    }
+
+    // 1. Validação e limite máximo de 20 mL no input
+    document.getElementById('inputVolume').addEventListener('input', async (e) => {
+        let val = parseFloat(e.target.value) || 0;
+        if (val > 20) {
+            val = 20;
+            e.target.value = 20;
+        }
+        volumeAtual = val;
+        
+        if (corSelecionadaGlobal) {
+            await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
+        }
+    });
+
+    function rgbToHex(r, g, b) {
+        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }  
+    // 2. Enviar cor manual
+    document.getElementById('enviarCorBtn').addEventListener('click', async () => {
+        const cor = document.getElementById('seletorCor').value;
+        corSelecionadaGlobal = cor;
+        document.getElementById('secaoPesos').style.display = "block";
+        document.getElementById('corPedidoVisor').style.backgroundColor = cor;
+        await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
+    });
+
+    document.getElementById('tirarFotoBtn').addEventListener('click', () => inputCamera.click());
+    document.getElementById('enviarImgBtn').addEventListener('click', () => inputArquivo.click());
+
+    inputCamera.addEventListener('change', async () => {
+        if (inputCamera.files.length > 0) await enviarParaServidor(inputCamera.files[0]);
+    });
+
+    inputArquivo.addEventListener('change', async () => {
+        if (inputArquivo.files.length > 0) await enviarParaServidor(inputArquivo.files[0]);
+    });
+
+    // 3. Enviar imagem para o FastAPI e montar a paleta de cores dominantes
+    async function enviarParaServidor(arquivo) {
+        const formData = new FormData();
+        formData.append("arquivo", arquivo);
+
+        try {
+            const res = await fetch('/imagem', { method: 'POST', body: formData });
+            const data = await res.json();
+            
+            if (data.cores_dominantes && data.cores_dominantes.length > 0) {
+                const paletaEl = document.getElementById('paletaCores');
+                document.getElementById('secaoCores').style.display = "block";
+                paletaEl.innerHTML = ""; 
+
+                data.cores_dominantes.forEach(item => {
+                    const r = item.rgb.red;
+                    const g = item.rgb.green;
+                    const b = item.rgb.blue;
+                    const hex = rgbToHex(r, g, b);
+
+                    const divCor = document.createElement('div');
+                    divCor.className = "visor-cor";
+                    divCor.style.width = "40px";
+                    divCor.style.height = "40px";
+                    divCor.style.cursor = "pointer";
+                    divCor.style.backgroundColor = hex;
+                    divCor.style.display = "inline-block";
+                    
+                    divCor.addEventListener('click', async () => {
+                        corSelecionadaGlobal = hex;
+                        document.getElementById('secaoPesos').style.display = "block";
+                        document.getElementById('corPedidoVisor').style.backgroundColor = hex;
+                        await calcularEExibirPesos(hex, volumeAtual);
+                    });
+
+                    paletaEl.appendChild(divCor);
+                });
+            }
+        } catch (err) {
+            console.error("Erro ao enviar imagem:", err);
+        }
+    }
+
+    // 4. Pede para o Python calcular a decomposição em gramas
+    async function calcularEExibirPesos(hex, volTotal) {
+        try {
+            const res = await fetch('/cor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cor: hex, volumeTotal: volTotal })
+            });
+            const data = await res.json();
+            
+            document.getElementById('secaoPesos').style.display = "block";
+        if (data.pesos) {
+                ultimosPesosCalculados = data.pesos;
+                const listaEl = document.getElementById('listaPesos');
+                listaEl.innerHTML = "";
+                
+                for (const [tinta, gramas] of Object.entries(data.pesos)) {
+                    const li = document.createElement('li');
+                    li.textContent = `${tinta.toUpperCase()}: ${gramas} g`;
+                    li.style.margin = "4px 0";
+                    li.style.padding = "6px 10px";
+                    li.style.background = "#eef2ff";
+                    li.style.borderRadius = "4px";
+                    li.style.fontWeight = "bold";
+                    li.style.color = "#312e81";
+                    listaEl.appendChild(li);
+                }
+            }
+        } catch (err) {
+            console.error("Erro ao calcular pesos:", err);
+        }
+    }
+
+    // 5. Botão final para disparar a receita via MQTT e mudar para a tela de produção
+    document.getElementById('enviarReceitaArduinoBtn').addEventListener('click', async () => {
+        if (corSelecionadaGlobal && !ultimosPesosCalculados) {
+            await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
+        }
+
+        if (!corSelecionadaGlobal || !ultimosPesosCalculados) {
+            alert("Por favor, selecione uma cor ou gere os pesos primeiro!");
+            return;
+        }
+
+        try {
+            const res = await fetch('/enviar-mqtt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    cor: corSelecionadaGlobal,
+                    volumeTotal: volumeAtual,
+                    pesos: ultimosPesosCalculados
+                })
+            });
+            
+            await res.json();
+            alert("Receita enviada com sucesso para a máquina!");
+            mudarTela('view-producao');
+
+        } catch (err) {
+            alert("Erro ao enviar receita: " + err.message);
+        }
+    });
+</script>    
+</body>
+</html>
