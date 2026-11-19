@@ -80,13 +80,13 @@
             <h3>Produção em Andamento...</h3>
             <p>Acompanhe a dosagem e a mistura em tempo real.</p>
 
-            <!-- 5 Bombas -->
+            <!-- 5 Bombas (IDs em minúsculo para bater com o MQTT) -->
             <div class="grid-bombas">
-                <div class="card-bomba"><h4>Vermelho</h4><div id="bombaVermelho" style="font-weight:bold;">0.00g</div></div>
-                <div class="card-bomba"><h4>Amarelo</h4><div id="bombaAmarelo" style="font-weight:bold;">0.00g</div></div>
-                <div class="card-bomba"><h4>Azul</h4><div id="bombaAzul" style="font-weight:bold;">0.00g</div></div>
-                <div class="card-bomba"><h4>Branco</h4><div id="bombaBranco" style="font-weight:bold;">0.00g</div></div>
-                <div class="card-bomba"><h4>Preto</h4><div id="bombaPreto" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Vermelho</h4><div id="vermelho" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Amarelo</h4><div id="amarelo" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Azul</h4><div id="azul" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Branco</h4><div id="branco" style="font-weight:bold;">0.00g</div></div>
+                <div class="card-bomba"><h4>Preto</h4><div id="preto" style="font-weight:bold;">0.00g</div></div>
             </div>
 
             <!-- Misturador -->
@@ -110,228 +110,312 @@
     </div>
 
     <script>
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
-    }
-
-    const respostaEl = document.getElementById('resposta');
-    const inputCamera = document.getElementById('inputCamera');
-    const inputArquivo = document.getElementById('inputArquivo');
-
-    let corSelecionadaGlobal = null;
-    let volumeAtual = 20;
-    let ultimosPesosCalculados = null;
-
-    // --- CONEXÃO WEBSOCKET COM O SERVIDOR FASTAPI ---
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    const socket = new WebSocket(wsUrl);
-
-    socket.onmessage = function(event) {
-        const dados = JSON.parse(event.data);
-        console.log("Recebido do Servidor (WebSocket):", dados);
-
-        if (dados.tipo === "status_maquina") {
-            atualizarBadgeStatus(dados.estado);
-        } else if (dados.tipo === "progresso_bomba") {
-            atualizarProgressoBomba(dados.bomba, dados.valor);
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js');
         }
-    };
 
-    socket.onopen = () => console.log("Conectado ao WebSocket do servidor.");
-    socket.onclose = () => console.log("WebSocket desconectado.");
+        const inputCamera = document.getElementById('inputCamera');
+        const inputArquivo = document.getElementById('inputArquivo');
 
-    // Função para atualizar a Tela 1 (Status da Máquina)
-    function atualizarBadgeStatus(estado) {
-        const badge = document.getElementById('maquinaEstadoBadge');
-        const mensagem = document.getElementById('maquinaMensagem');
-        const btnCriar = document.getElementById('irParaCriarReceitaBtn');
+        let corSelecionadaGlobal = null;
+        let volumeAtual = 20;
+        let ultimosPesosCalculados = null;
 
-        badge.textContent = estado.toUpperCase();
-
-        if (estado === "livre") {
-            badge.className = "status-badge ligado";
-            mensagem.textContent = "A dosadora está pronta para uso.";
-            btnCriar.classList.remove('hidden');
-        } else if (estado === "ocupado") {
-            badge.className = "status-badge desligado";
-            badge.style.background = "#fef08a"; // Amarelo/Laranja para ocupado
-            badge.style.color = "#854d0e";
-            mensagem.textContent = "A máquina está realizando uma produção no momento...";
-            btnCriar.classList.add('hidden');
-        } else {
-            badge.className = "status-badge desligado";
-            mensagem.textContent = "Máquina desligada ou desconectada.";
-            btnCriar.classList.add('hidden');
-        }
-    }
-
-    // Função para atualizar os pesos na Tela 3 em tempo real
-    function atualizarProgressoBomba(nomeBomba, valor) {
-        // Mapeia o nome enviado pelo Arduino para o ID do HTML
-        const mapaBombas = {
-            "vermelho": "bombaVermelho",
-            "amarelo": "bombaAmarelo",
-            "azul": "bombaAzul",
-            "branco": "bombaBranco",
-            "preto": "bombaPreto"
-        };
-
-        const idElemento = mapaBombas[nomeBomba.toLowerCase()];
-        if (idElemento) {
-            document.getElementById(idElemento).textContent = valor + "g";
-        }
-    }
-
-    // Função para alternar entre as telas (Views)
-    function mudarTela(idView) {
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        document.getElementById(idView).classList.add('active');
-    }
-
-    // 1. Validação e limite máximo de 20 mL no input
-    document.getElementById('inputVolume').addEventListener('input', async (e) => {
-        let val = parseFloat(e.target.value) || 0;
-        if (val > 20) {
-            val = 20;
-            e.target.value = 20;
-        }
-        volumeAtual = val;
-        
-        if (corSelecionadaGlobal) {
-            await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
-        }
-    });
-
-    function rgbToHex(r, g, b) {
-        return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
-    }  
-    // 2. Enviar cor manual
-    document.getElementById('enviarCorBtn').addEventListener('click', async () => {
-        const cor = document.getElementById('seletorCor').value;
-        corSelecionadaGlobal = cor;
-        document.getElementById('secaoPesos').style.display = "block";
-        document.getElementById('corPedidoVisor').style.backgroundColor = cor;
-        await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
-    });
-
-    document.getElementById('tirarFotoBtn').addEventListener('click', () => inputCamera.click());
-    document.getElementById('enviarImgBtn').addEventListener('click', () => inputArquivo.click());
-
-    inputCamera.addEventListener('change', async () => {
-        if (inputCamera.files.length > 0) await enviarParaServidor(inputCamera.files[0]);
-    });
-
-    inputArquivo.addEventListener('change', async () => {
-        if (inputArquivo.files.length > 0) await enviarParaServidor(inputArquivo.files[0]);
-    });
-
-    // 3. Enviar imagem para o FastAPI e montar a paleta de cores dominantes
-    async function enviarParaServidor(arquivo) {
-        const formData = new FormData();
-        formData.append("arquivo", arquivo);
-
-        try {
-            const res = await fetch('/imagem', { method: 'POST', body: formData });
-            const data = await res.json();
-            
-            if (data.cores_dominantes && data.cores_dominantes.length > 0) {
-                const paletaEl = document.getElementById('paletaCores');
-                document.getElementById('secaoCores').style.display = "block";
-                paletaEl.innerHTML = ""; 
-
-                data.cores_dominantes.forEach(item => {
-                    const r = item.rgb.red;
-                    const g = item.rgb.green;
-                    const b = item.rgb.blue;
-                    const hex = rgbToHex(r, g, b);
-
-                    const divCor = document.createElement('div');
-                    divCor.className = "visor-cor";
-                    divCor.style.width = "40px";
-                    divCor.style.height = "40px";
-                    divCor.style.cursor = "pointer";
-                    divCor.style.backgroundColor = hex;
-                    divCor.style.display = "inline-block";
-                    
-                    divCor.addEventListener('click', async () => {
-                        corSelecionadaGlobal = hex;
-                        document.getElementById('secaoPesos').style.display = "block";
-                        document.getElementById('corPedidoVisor').style.backgroundColor = hex;
-                        await calcularEExibirPesos(hex, volumeAtual);
-                    });
-
-                    paletaEl.appendChild(divCor);
-                });
+        // Formata segundos em MM:SS (ex: 120 -> "02:00")
+        function formatarTempoMMSS(segundosTotais) {
+            if (segundosTotais === undefined || segundosTotais === null || isNaN(segundosTotais)) {
+                return "--:--";
             }
-        } catch (err) {
-            console.error("Erro ao enviar imagem:", err);
+            const seg = Math.max(0, Math.floor(Number(segundosTotais)));
+            const minStr = String(Math.floor(seg / 60)).padStart(2, '0');
+            const segStr = String(seg % 60).padStart(2, '0');
+            return `${minStr}:${segStr}`;
         }
-    }
 
-    // 4. Pede para o Python calcular a decomposição em gramas
-    async function calcularEExibirPesos(hex, volTotal) {
-        try {
-            const res = await fetch('/cor', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ cor: hex, volumeTotal: volTotal })
-            });
-            const data = await res.json();
-            
-            document.getElementById('secaoPesos').style.display = "block";
-        if (data.pesos) {
-                ultimosPesosCalculados = data.pesos;
-                const listaEl = document.getElementById('listaPesos');
-                listaEl.innerHTML = "";
-                
-                for (const [tinta, gramas] of Object.entries(data.pesos)) {
-                    const li = document.createElement('li');
-                    li.textContent = `${tinta.toUpperCase()}: ${gramas} g`;
-                    li.style.margin = "4px 0";
-                    li.style.padding = "6px 10px";
-                    li.style.background = "#eef2ff";
-                    li.style.borderRadius = "4px";
-                    li.style.fontWeight = "bold";
-                    li.style.color = "#312e81";
-                    listaEl.appendChild(li);
+        // Atualiza badge LIGADO/DESLIGADO e tempo do vórtex/misturador
+        function atualizarMisturador(dados) {
+            const badge = document.getElementById('statusMisturadorBadge');
+            const tempoEl = document.getElementById('tempoMistura');
+
+            const estaLigado =
+                dados.ligado === true ||
+                dados.ligado === 1 ||
+                dados.status_vortex === 1 ||
+                dados.estado === "ligado";
+
+            if (badge) {
+                if (estaLigado) {
+                    badge.textContent = "LIGADO";
+                    badge.className = "status-badge ligado";
+                } else {
+                    badge.textContent = "DESLIGADO";
+                    badge.className = "status-badge desligado";
                 }
             }
-        } catch (err) {
-            console.error("Erro ao calcular pesos:", err);
-        }
-    }
 
-    // 5. Botão final para disparar a receita via MQTT e mudar para a tela de produção
-    document.getElementById('enviarReceitaArduinoBtn').addEventListener('click', async () => {
-        if (corSelecionadaGlobal && !ultimosPesosCalculados) {
-            await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
-        }
+            if (tempoEl) {
+                const segundos =
+                    dados.tempo_restante_seg !== undefined ? dados.tempo_restante_seg :
+                    dados.tempo_seg !== undefined ? dados.tempo_seg :
+                    (!estaLigado && dados.tempo_total_seg !== undefined ? dados.tempo_total_seg : null);
 
-        if (!corSelecionadaGlobal || !ultimosPesosCalculados) {
-            alert("Por favor, selecione uma cor ou gere os pesos primeiro!");
-            return;
+                tempoEl.textContent = formatarTempoMMSS(segundos);
+            }
         }
 
-        try {
-            const res = await fetch('/enviar-mqtt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    cor: corSelecionadaGlobal,
-                    volumeTotal: volumeAtual,
-                    pesos: ultimosPesosCalculados
-                })
+        // --- CONEXÃO WEBSOCKET COM O SERVIDOR FASTAPI ---
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        const socket = new WebSocket(wsUrl);
+
+        socket.onmessage = function(event) {
+            const dados = JSON.parse(event.data);
+            console.log("Recebido do Servidor (WebSocket):", dados);
+
+            if (dados.tipo === "status_maquina") {
+                atualizarBadgeStatus(dados.estado);
+            } else if (dados.tipo === "progresso_bomba") {
+                atualizarProgressoBomba(dados.bomba, dados.valor);
+            } else if (dados.tipo === "vortex" || dados.tipo === "status_vortex") {
+                atualizarMisturador(dados);
+            } else if (dados.tipo === "sensor_cor") {
+                console.log("Processando dados do sensor de cor...");
+
+                // 1. Atualiza o visor visual da cor lida pelo sensor na tela
+                const visorSensor = document.getElementById('corSensorVisor');
+                if (visorSensor) {
+                    visorSensor.style.backgroundColor = dados.cor;
+                }
+
+                // 2. Se o Python mandou os pesos acumulados, atualiza os textos na tela
+                if (dados.pesos_acumulados) {
+                    const elVermelho = document.getElementById('pesoVermelho');
+                    const elAmarelo  = document.getElementById('pesoAmarelo');
+                    const elAzul     = document.getElementById('pesoAzul');
+
+                    if (elVermelho && dados.pesos_acumulados.vermelho !== undefined) {
+                        elVermelho.innerText = dados.pesos_acumulados.vermelho.toFixed(2) + " g";
+                    }
+                    if (elAmarelo && dados.pesos_acumulados.amarelo !== undefined) {
+                        elAmarelo.innerText = dados.pesos_acumulados.amarelo.toFixed(2) + " g";
+                    }
+                    if (elAzul && dados.pesos_acumulados.azul !== undefined) {
+                        elAzul.innerText = dados.pesos_acumulados.azul.toFixed(2) + " g";
+                    }
+                }
+
+                console.log(`Status QC: ${dados.status_qc} | Erro de Cor: ${dados.erro}`);
+            }
+        };
+
+        socket.onopen = () => console.log("Conectado ao WebSocket do servidor.");
+        socket.onclose = () => console.log("WebSocket desconectado.");
+
+        // Função para zerar os visores das bombas e do misturador na tela de produção
+        function resetarVisoresBombas() {
+            const bombas = ["vermelho", "amarelo", "azul", "branco", "preto"];
+            bombas.forEach(bomba => {
+                const el = document.getElementById(bomba);
+                if (el) el.textContent = "0.00g";
             });
-            
-            await res.json();
-            alert("Receita enviada com sucesso para a máquina!");
-            mudarTela('view-producao');
 
-        } catch (err) {
-            alert("Erro ao enviar receita: " + err.message);
+            atualizarMisturador({ ligado: false, tempo_restante_seg: null });
         }
-    });
-</script>    
+
+        // Função para atualizar a Tela 1 (Status da Máquina)
+        function atualizarBadgeStatus(estado) {
+            const badge = document.getElementById('maquinaEstadoBadge');
+            const mensagem = document.getElementById('maquinaMensagem');
+            const btnCriar = document.getElementById('irParaCriarReceitaBtn');
+
+            badge.textContent = estado.toUpperCase();
+
+            if (estado === "livre") {
+                badge.className = "status-badge ligado";
+                badge.style.background = "";
+                badge.style.color = "";
+                mensagem.textContent = "A dosadora está pronta para uso.";
+                btnCriar.classList.remove('hidden');
+                
+                // Zera os campos se o lote acabou
+                resetarVisoresBombas();
+            } else if (estado === "ocupado") {
+                badge.className = "status-badge desligado";
+                badge.style.background = "#fef08a";
+                badge.style.color = "#854d0e";
+                mensagem.textContent = "A máquina está realizando uma produção no momento...";
+                btnCriar.classList.add('hidden');
+            } else {
+                badge.className = "status-badge desligado";
+                badge.style.background = "";
+                badge.style.color = "";
+                mensagem.textContent = "Máquina desligada ou desconectada.";
+                btnCriar.classList.add('hidden');
+            }
+        }
+
+        // Função para atualizar os pesos na Tela 3 em tempo real via WebSocket
+        function atualizarProgressoBomba(nomeBomba, valor) {
+            const idElemento = nomeBomba.toLowerCase().trim();
+            const elemento = document.getElementById(idElemento);
+            if (elemento) {
+                elemento.textContent = Number(valor).toFixed(2) + "g";
+            }
+        }
+
+        // Função para alternar entre as telas (Views)
+        function mudarTela(idView) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(idView).classList.add('active');
+        }
+
+        // 1. Validação e limite máximo de 20 mL no input
+        document.getElementById('inputVolume').addEventListener('input', async (e) => {
+            let val = parseFloat(e.target.value) || 0;
+            if (val > 20) {
+                val = 20;
+                e.target.value = 20;
+            }
+            volumeAtual = val;
+            
+            if (corSelecionadaGlobal) {
+                await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
+            }
+        });
+
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+        }  
+
+        // 2. Enviar cor manual
+        document.getElementById('enviarCorBtn').addEventListener('click', async () => {
+            const cor = document.getElementById('seletorCor').value;
+            corSelecionadaGlobal = cor;
+            document.getElementById('secaoPesos').style.display = "block";
+            document.getElementById('corPedidoVisor').style.backgroundColor = cor;
+            await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
+        });
+
+        document.getElementById('tirarFotoBtn').addEventListener('click', () => inputCamera.click());
+        document.getElementById('enviarImgBtn').addEventListener('click', () => inputArquivo.click());
+
+        inputCamera.addEventListener('change', async () => {
+            if (inputCamera.files.length > 0) await enviarParaServidor(inputCamera.files[0]);
+        });
+
+        inputArquivo.addEventListener('change', async () => {
+            if (inputArquivo.files.length > 0) await enviarParaServidor(inputArquivo.files[0]);
+        });
+
+        // 3. Enviar imagem para o FastAPI e montar a paleta de cores dominantes
+        async function enviarParaServidor(arquivo) {
+            const formData = new FormData();
+            formData.append("arquivo", arquivo);
+
+            try {
+                const res = await fetch('/imagem', { method: 'POST', body: formData });
+                const data = await res.json();
+                
+                if (data.cores_dominantes && data.cores_dominantes.length > 0) {
+                    const paletaEl = document.getElementById('paletaCores');
+                    document.getElementById('secaoCores').style.display = "block";
+                    paletaEl.innerHTML = ""; 
+
+                    data.cores_dominantes.forEach(item => {
+                        const r = item.rgb.red;
+                        const g = item.rgb.green;
+                        const b = item.rgb.blue;
+                        const hex = rgbToHex(r, g, b);
+
+                        const divCor = document.createElement('div');
+                        divCor.className = "visor-cor";
+                        divCor.style.width = "40px";
+                        divCor.style.height = "40px";
+                        divCor.style.cursor = "pointer";
+                        divCor.style.backgroundColor = hex;
+                        divCor.style.display = "inline-block";
+                        
+                        divCor.addEventListener('click', async () => {
+                            corSelecionadaGlobal = hex;
+                            document.getElementById('secaoPesos').style.display = "block";
+                            document.getElementById('corPedidoVisor').style.backgroundColor = hex;
+                            await calcularEExibirPesos(hex, volumeAtual);
+                        });
+
+                        paletaEl.appendChild(divCor);
+                    });
+                }
+            } catch (err) {
+                console.error("Erro ao enviar imagem:", err);
+            }
+        }
+
+        // 4. Pede para o Python calcular a decomposição em gramas
+        async function calcularEExibirPesos(hex, volTotal) {
+            try {
+                const res = await fetch('/cor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ cor: hex, volumeTotal: volTotal })
+                });
+                const data = await res.json();
+                
+                document.getElementById('secaoPesos').style.display = "block";
+                if (data.pesos) {
+                    ultimosPesosCalculados = data.pesos;
+                    const listaEl = document.getElementById('listaPesos');
+                    listaEl.innerHTML = "";
+                    
+                    for (const [tinta, gramas] of Object.entries(data.pesos)) {
+                        const li = document.createElement('li');
+                        li.textContent = `${tinta.toUpperCase()}: ${gramas} g`;
+                        li.style.margin = "4px 0";
+                        li.style.padding = "6px 10px";
+                        li.style.background = "#eef2ff";
+                        li.style.borderRadius = "4px";
+                        li.style.fontWeight = "bold";
+                        li.style.color = "#312e81";
+                        listaEl.appendChild(li);
+                    }
+                }
+            } catch (err) {
+                console.error("Erro ao calcular pesos:", err);
+            }
+        }
+
+        // 5. Botão final para disparar a receita via MQTT e mudar para a tela de produção
+        document.getElementById('enviarReceitaArduinoBtn').addEventListener('click', async () => {
+            if (corSelecionadaGlobal && !ultimosPesosCalculados) {
+                await calcularEExibirPesos(corSelecionadaGlobal, volumeAtual);
+            }
+
+            if (!corSelecionadaGlobal || !ultimosPesosCalculados) {
+                alert("Por favor, selecione uma cor ou gere os pesos primeiro!");
+                return;
+            }
+
+            try {
+                // Zera os visores imediatamente ao enviar a nova receita
+                resetarVisoresBombas();
+
+                const res = await fetch('/enviar-mqtt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cor: corSelecionadaGlobal,
+                        volumeTotal: volumeAtual,
+                        pesos: ultimosPesosCalculados
+                    })
+                });
+                
+                await res.json();
+                alert("Receita enviada com sucesso para a máquina!");
+                mudarTela('view-producao');
+
+            } catch (err) {
+                alert("Erro ao enviar receita: " + err.message);
+            }
+        });
+    </script>    
 </body>
 </html>
